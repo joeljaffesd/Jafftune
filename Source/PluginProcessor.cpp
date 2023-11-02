@@ -206,9 +206,10 @@ void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& buff
     float gain = 1.0f;
     auto bufferSize = buffer.getNumSamples();
     auto delayBufferSize = delayBuffer.getNumSamples();
+    float delayTime = 1500.0f; // <- should variable be declared inside the function?
     
     //create parameter for delay time
-    auto readPosition = writePosition - getSampleRate();
+    auto readPosition = writePosition - (delayTime * (getSampleRate() / 1000));
     
     if (readPosition < 0)
         readPosition += delayBufferSize;
@@ -242,7 +243,7 @@ bool JafftuneAudioProcessor::hasEditor() const
 juce::AudioProcessorEditor* JafftuneAudioProcessor::createEditor()
 {
     //return new JafftuneAudioProcessorEditor (*this);
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new juce::GenericAudioProcessorEditor (*this);
 }
 
 //==============================================================================
@@ -266,15 +267,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout
 {
         juce::AudioProcessorValueTreeState::ParameterLayout layout;
         
+        //adds parameter for controlling ratio of outpitch to inpitch
         layout.add(std::make_unique<juce::AudioParameterFloat>("Pitch Ratio",
         "Pitch Ratio",
         juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 1.f));
                                        // (low, hi, step, skew), default value)
+        
+        //adds parameter for blending pitshifted signal with input signal
         layout.add(std::make_unique<juce::AudioParameterFloat>("Blend",
         "Blend",
         juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 50.f));
         
-     
         //adds binary option for Stereo and Mono modes
         juce::StringArray stringArray;
         for( int i = 0; i < 2; ++i )
