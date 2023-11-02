@@ -56,10 +56,6 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
     
-    //void fillDelayBuffer (int channel, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);
-    
-    //void getFromDelayBuffer(juce::AudioBuffer<float>& buffer, int channel, const int bufferLength, const int delayBufferLength, const float* bufferData, const float* delayBufferData);
-    
     static juce::AudioProcessorValueTreeState::ParameterLayout
     createParameterLayout();
     juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
@@ -71,7 +67,6 @@ private:
     
     juce::AudioBuffer<float> delayBuffer;
     int writePosition { 0 };
-    //int mSampleRate { 44100 }; //this could be a problem if ran at other sample rates
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JafftuneAudioProcessor)

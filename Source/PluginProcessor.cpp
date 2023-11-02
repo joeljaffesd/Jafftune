@@ -95,12 +95,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
-    //const int numInputChannels = getTotalNumInputChannels();
     auto delayBufferSize = sampleRate * 2.0;
     delayBuffer.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
-    //mSampleRate = sampleRate;
-    
-    //delayBuffer.setSize(numInputChannels, delayBufferSize);
 }
 
 void JafftuneAudioProcessor::releaseResources()
@@ -158,48 +154,29 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // interleaved by keeping the same state.
     
     auto bufferSize = buffer.getNumSamples();
-    const int delayBufferSize = delayBuffer.getNumSamples();
+    auto delayBufferSize = delayBuffer.getNumSamples();
     
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
-        
-        //const float* bufferData = buffer.getReadPointer(channel);
-        //const float* delayBufferData = delayBuffer.getReadPointer(channel);
-        
+        float gain = 1.0f;
         fillBuffer (channel, bufferSize, delayBufferSize, channelData);
         
-        auto readPosition = writePosition - getSampleRate();
+        //^above code writes data to delayBuffer
+        //following code adds delyBuffer data into main buffer
         
+        auto readPosition = writePosition - getSampleRate();
         if (readPosition < 0)
             readPosition += delayBufferSize;
-        
         if (readPosition + bufferSize < delayBufferSize) {
-            buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), bufferSize, 0.8, 0.8);
+            buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), bufferSize, gain, gain);
         }
         else {
             auto numSamplesToEnd = delayBufferSize - readPosition;
-            buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, 0.8, 0.8);
+            buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, gain, gain);
             auto numSamplesAtStart = bufferSize - numSamplesToEnd;
-            buffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, 0.8, 0.8);
+            buffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, gain, gain);
         }
-        //getFromDelayBuffer(buffer, channel, bufferSize, delayBufferSize, channelData, delayBufferData);
-      /*
-        //copy data from main buffer to delay buffer -> moved to dedicated function
-        if (delayBufferSize > bufferSize + writePosition)
-        {
-            delayBuffer.copyFromWithRamp(channel, writePosition, channelData, bufferSize, 0.8f, 0.8f); // 0.8 = start and end gain, why not 1.0?
-        }
-        else {
-            auto numSamplesToEnd = delayBufferSize - writePosition;
-            
-            delayBuffer.copyFromWithRamp(channel, writePosition, channelData, numSamplesToEnd, 0.8f, 0.8f);
-            
-            auto numSamplesAtStart = bufferSize - numSamplesToEnd;
-            
-            delayBuffer.copyFromWithRamp(channel, 0, channelData, numSamplesAtStart, 0.8f, 0.8f);
-        }
-        */
         // ..do something to the data...
     }
     
@@ -209,39 +186,31 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 void JafftuneAudioProcessor::fillBuffer (int channel, int bufferSize, int delayBufferSize, float* channelData)
 {
       //copy data from main buffer to delay buffer -> dedicated function
+    
+      //initialize gain variable
+      float gain = 1.0f;
+      
+      //Check to see if main buffer copies to delay buffer without needing to wrap
       if (delayBufferSize > bufferSize + writePosition)
       {
-          delayBuffer.copyFromWithRamp(channel, writePosition, channelData, bufferSize, 0.8f, 0.8f); // 0.8 = start and end gain, why not 1.0?
+          //copy main buffer to delay buffer
+          delayBuffer.copyFromWithRamp(channel, writePosition, channelData, bufferSize, gain, gain); // 0.8 = start and end gain, why not 1.0?
       }
+      //if not
       else {
+          //determine how much space is left at the end of the delay buffer
           auto numSamplesToEnd = delayBufferSize - writePosition;
           
-          delayBuffer.copyFromWithRamp(channel, writePosition, channelData, numSamplesToEnd, 0.8f, 0.8f);
+          //copy that amount of content to the end
+          delayBuffer.copyFromWithRamp(channel, writePosition, channelData, numSamplesToEnd, gain, gain);
           
+          //calculate how much content remains to be copied
           auto numSamplesAtStart = bufferSize - numSamplesToEnd;
           
-          delayBuffer.copyFromWithRamp(channel, 0, channelData + numSamplesToEnd, numSamplesAtStart, 0.8f, 0.8f);
+          //copy remainging amount to beginning of delay buffer
+          delayBuffer.copyFromWithRamp(channel, 0, channelData + numSamplesToEnd, numSamplesAtStart, gain, gain);
       }
 }
-/*
-void JafftuneAudioProcessor::getFromDelayBuffer(juce::AudioBuffer<float>& buffer, int channel, const int bufferSize, const int delayBufferSize, const float* channelData, const float* delayBufferData)
-{
-    int delayTime = 500;
-    const int readPosition = static_cast<int> (delayBufferSize + writePosition - (mSampleRate * delayTime /1000)) % delayBufferSize; //make delayTime variable, check if static cast causes issues
-    if (delayBufferSize > bufferSize + readPosition)
-    {
-        buffer.addFrom(channel, 0, delayBufferData + readPosition, bufferSize);
-    }
-    else {
-        const int bufferRemaining = delayBufferSize - readPosition;
-        buffer.addFrom(channel, 0, delayBufferData + readPosition, bufferRemaining);
-        buffer.addFrom(channel, bufferRemaining, delayBufferData, bufferSize - bufferRemaining);
-    }
-}
-*/
-//DBG ("Delay Buffer Size: " << delayBufferSize);
-//DBG ("Buffer Size: " << bufferSize);
-//DBG ("Write Position: " << writePosition);
 
 //==============================================================================
 bool JafftuneAudioProcessor::hasEditor() const
@@ -284,7 +253,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         "Blend",
         juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 50.f));
         
-     /*
+     
         //adds binary option for Stereo and Mono modes
         juce::StringArray stringArray;
         for( int i = 0; i < 2; ++i )
@@ -300,7 +269,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         }
         
         layout.add(std::make_unique<juce::AudioParameterChoice>("Operation Mode", "Operation Mode", stringArray, 0));
-        */
+        
         return layout;
     }
 
