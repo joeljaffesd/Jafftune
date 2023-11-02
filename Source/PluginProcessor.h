@@ -63,8 +63,9 @@ public:
     
 private:
     //declare functions
-    void fillDelayBuffer(int channel, int bufferSize, int delayBufferSize, float* channelData);
-    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, int bufferSize, int delayBufferSize);
+    void fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel);
+    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel);
+    void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
     //declare globals
     juce::AudioBuffer<float> delayBuffer;
