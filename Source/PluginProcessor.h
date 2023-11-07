@@ -68,6 +68,7 @@ private:
     
     //declare globals
     juce::AudioBuffer<float> delayBuffer;
+    //juce::AudioBuffer<float> phasorBuffer; // <- if writing phasor~ to a buffer
     int writePosition { 0 };
     float phasorOutput = { 0.0f };
     float delayTime = { 0.0f }; // <- in milliseconds

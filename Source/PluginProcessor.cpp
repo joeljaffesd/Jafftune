@@ -97,6 +97,12 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     auto delayBufferSize = sampleRate * 2.0;
     delayBuffer.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
     
+    /*
+    //initialize phasorBufferSize // <- if writing phasor~ to a buffer
+    auto phasorBufferSize = samplesPerBlock;
+    phasorBuffer.setSize(getTotalNumOutputChannels(), (int)phasorBufferSize);
+    */
+    
     //initialzie spec
     juce::dsp::ProcessSpec spec;
     spec.maximumBlockSize = samplesPerBlock;
@@ -289,7 +295,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         //adds parameter for controlling ratio of outpitch to inpitch
         layout.add(std::make_unique<juce::AudioParameterFloat>("Pitch Ratio",
         "Pitch Ratio",
-        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 1.f));
+        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 0.987f));
                                        // (low, hi, step, skew), default value)
         
         //adds parameter for blending pitshifted signal with input signal
