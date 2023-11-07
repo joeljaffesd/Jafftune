@@ -104,7 +104,7 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     spec.numChannels = getTotalNumOutputChannels();
     
     phasor.prepare (spec); //pass spec to phasor
-    phasor.setFrequency(1.0f); //set phasor frequency
+    phasor.setFrequency(1.0f); //set initial phasor frequency
 }
 
 void JafftuneAudioProcessor::releaseResources()
@@ -149,9 +149,9 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         buffer.clear (i, 0, buffer.getNumSamples());
     
     //set phasor~ based on pitchRatio
-    //float pitchRatio = apvts.getRawParameterValue ("Pitch Ratio");
-    //delayWindow =
-    
+    float pitchRatio = apvts.getRawParameterValue ("Pitch Ratio")->load();
+    //delayWindow = // <- resolve to adjustable parameter
+    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
     
     //Set phasorOutput equal to phasor~ output, set delayTime to delayWindow * phasorOutput
         for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
@@ -172,6 +172,20 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     }
     
     updateBufferPositions (buffer, delayBuffer);
+    
+    /*
+    //DBG printer
+       static juce::Time lastDebugPrintTime = juce::Time::getCurrentTime();
+           juce::Time currentTime = juce::Time::getCurrentTime();
+           if (currentTime - lastDebugPrintTime >= juce::RelativeTime::milliseconds(1000))
+           {
+               // Print debug message
+               DBG("pitchRatio: " + juce::String(pitchRatio));
+               
+               // Update the last print time
+               lastDebugPrintTime = currentTime;
+           }
+     */
     
 }
 void JafftuneAudioProcessor::fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel)
