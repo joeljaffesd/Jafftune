@@ -60,16 +60,22 @@ public:
     createParameterLayout();
     juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
         
-    
 private:
     //declare functions
     void fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel);
-    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel);
+    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime);
     void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
     //declare globals
     juce::AudioBuffer<float> delayBuffer;
     int writePosition { 0 };
+    float phasorOutput = { 0.0f };
+    float delayTime = { 0.0f }; // <- in milliseconds
+    float delayWindow = { 22.0f }; // <- in milliseconds
+    
+    
+    //sawtooth oscillator -> replicates "phasor~"
+    juce::dsp::Oscillator<float> phasor { [](float x) { return ((x / juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JafftuneAudioProcessor)
