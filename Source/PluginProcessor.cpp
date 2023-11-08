@@ -177,11 +177,13 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //read from delay buffer into wetBuffer
         readFromDelayBuffer(wetBuffer, delayBuffer, channel, delayTime);
         
-        buffer.copyFrom (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples());
+        //read from wetBuffer into buffer
         
-        /*
-         delayBuffer.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), buffer.getNumSamples();,
-         */
+        //Blend control
+        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), 0.5, 0.5);
+        
+        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), 0.5, 0.5);
+
     }
     
     updateBufferPositions (buffer, delayBuffer);
@@ -302,7 +304,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         //adds parameter for controlling ratio of outpitch to inpitch
         layout.add(std::make_unique<juce::AudioParameterFloat>("Pitch Ratio",
         "Pitch Ratio",
-        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 0.6f));
+        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 0.987f));
                                        // (low, hi, step, skew), default value)
         
         //adds parameter for blending pitshifted signal with input signal
