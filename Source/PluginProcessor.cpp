@@ -113,7 +113,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     spec.numChannels = getTotalNumOutputChannels();
     
     phasor.prepare (spec); //pass spec to phasor
-    phasor.setFrequency(1.0f); //set initial phasor frequency
+    phasor.setFrequency( 1.0f ); //set initial phasor frequency
+
 }
 
 void JafftuneAudioProcessor::releaseResources()
@@ -157,7 +158,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    //set phasor~ based on pitchRatio
+    //set phasor~ frequency based on pitchRatio
     float pitchRatio = apvts.getRawParameterValue ("Pitch Ratio")->load();
     //delayWindow = // <- resolve to adjustable parameter
     phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
@@ -195,9 +196,13 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //read from wetBuffer into buffer
         
         //Blend control
-        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), 0.5, 0.5);
         
-        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), 0.5, 0.5);
+        float dryGain = 0.5;
+        float wetGain = 0.5;
+        
+        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
+        
+        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
 
     }
     
