@@ -66,12 +66,12 @@ private:
     void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime);
     void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
-    //declare globals
+    //declare buffers
     juce::AudioBuffer<float> delayBuffer;
     juce::AudioBuffer<float> wetBuffer;
-    //juce::AudioBuffer<float> dryBuffer;
     //juce::AudioBuffer<float> phasorBuffer; // <- if writing phasor~ to a buffer
-    //juce::AudioBuffer<float> dryBuffer;
+    
+    //declare global variables
     int writePosition { 0 };
     float phasorOutput = { 0.0f };
     float delayTime = { 0.0f }; // <- in milliseconds

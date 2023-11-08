@@ -99,10 +99,11 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     
     auto wetBufferSize = samplesPerBlock;
     wetBuffer.setSize(getTotalNumInputChannels(), (int)wetBufferSize);
-    /*
+    
+    /* if using phasorBuffer
     //initialize phasorBufferSize // <- if writing phasor~ to a buffer
     auto phasorBufferSize = samplesPerBlock;
-    phasorBuffer.setSize(getTotalNumOutputChannels(), (int)phasorBufferSize);
+    phasorBuffer.setSize(getTotalNumInputChannels(), (int)phasorBufferSize);
     */
     
     //initialzie spec
@@ -161,12 +162,26 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //delayWindow = // <- resolve to adjustable parameter
     phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
     
+    /* Attempting to avoid using processSample
+     
+    juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
+     
+    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
+    
+    for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
+    {
+        phasorOutput = phasorBuffer.getSample (0, sampleIndex);
+        delayTime = delayWindow * phasorOutput;
+    }
+    */
+    
     //Set phasorOutput equal to phasor~ output, set delayTime to delayWindow * phasorOutput
         for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
         {
             phasorOutput = phasor.processSample(0.0f);
             delayTime = delayWindow * phasorOutput;
         }
+    
     
     //write and read from delayBuffer
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
