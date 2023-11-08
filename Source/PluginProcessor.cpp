@@ -97,6 +97,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     auto delayBufferSize = sampleRate * 2.0;
     delayBuffer.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
     
+    auto wetBufferSize = samplesPerBlock;
+    wetBuffer.setSize(getTotalNumInputChannels(), (int)wetBufferSize);
     /*
     //initialize phasorBufferSize // <- if writing phasor~ to a buffer
     auto phasorBufferSize = samplesPerBlock;
@@ -172,9 +174,14 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //write from main buffer to delay buffer
         fillDelayBuffer (buffer, channel);
     
-        //read from delay buffer (adds to main buffer- tweak to add blend control)
-        readFromDelayBuffer(buffer, delayBuffer, channel, delayTime);
+        //read from delay buffer into wetBuffer
+        readFromDelayBuffer(wetBuffer, delayBuffer, channel, delayTime);
         
+        //buffer.copyFrom (channel, writePosition, buffer.getWritePointer(channel), buffer.getNumSamples());
+        
+        /*
+         delayBuffer.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), buffer.getNumSamples();,
+         */
     }
     
     updateBufferPositions (buffer, delayBuffer);
@@ -223,13 +230,13 @@ void JafftuneAudioProcessor::fillDelayBuffer (juce::AudioBuffer<float>& buffer, 
       }
 }
 
-void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime)
+void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& wetBuffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime)
 {
-    //adds delay buffer data to main buffer
+    //adds delay buffer data to wetBuffer <- formerly main buffer
     
     //initialize variables
     float gain = 1.0f;
-    auto bufferSize = buffer.getNumSamples();
+    auto bufferSize = wetBuffer.getNumSamples();
     auto delayBufferSize = delayBuffer.getNumSamples();
     //float delayTime = 1500.0f; // <- should variable be declared inside the function?
     
@@ -240,13 +247,13 @@ void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& buff
         readPosition += delayBufferSize;
     
     if (readPosition + bufferSize < delayBufferSize) {
-        buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), bufferSize, gain, gain);
+        wetBuffer.copyFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), bufferSize, gain, gain);
     }
     else {
         auto numSamplesToEnd = delayBufferSize - readPosition;
-        buffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, gain, gain);
+        wetBuffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, gain, gain);
         auto numSamplesAtStart = bufferSize - numSamplesToEnd;
-        buffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, gain, gain);
+        wetBuffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, gain, gain);
     }
 }
 
