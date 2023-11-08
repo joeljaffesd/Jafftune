@@ -193,13 +193,12 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //read from delay buffer into wetBuffer
         readFromDelayBuffer(wetBuffer, delayBuffer, channel, delayTime);
         
-        //read from wetBuffer into buffer
-        
         //Blend control
+        float blendFactor = apvts.getRawParameterValue ("Blend")->load();
+        float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+        float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         
-        float dryGain = 0.5;
-        float wetGain = 0.5;
-        
+        //read from wetBuffer into buffer
         buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
         
         buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);

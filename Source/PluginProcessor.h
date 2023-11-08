@@ -66,6 +66,29 @@ private:
     void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime);
     void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
+    /*
+    //dbtoa <- unnecessary?
+    float dbtoa(float db) {
+      return pow(10.0, db / 20.0);
+    }
+    */
+    
+    //scale
+    float scale(float x, float inMin, float inMax, float outMin, float outMax) {
+        // Perform linear mapping based on specified input and output ranges
+        float scaledValue = ((x - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin;
+        
+        return scaledValue;
+    }
+    
+    /*
+    Dry:
+    scale (100 - rawParameterValue, 0.0f, 100.0f, 0.0f, 1.0f)
+     
+    Wet:
+     scale (100 - rawParameterValue, 0.0f, 100.0f, 0.0f, 1.0f)
+    */
+    
     //declare buffers
     juce::AudioBuffer<float> delayBuffer;
     juce::AudioBuffer<float> wetBuffer;
