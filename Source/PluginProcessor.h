@@ -58,12 +58,12 @@ public:
     
     static juce::AudioProcessorValueTreeState::ParameterLayout
     createParameterLayout();
-    juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
+    juce::AudioProcessorValueTreeState treeState {*this, nullptr, "Parameters", createParameterLayout()};
         
 private:
     //declare functions
     void fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel);
-    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime);
+    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime, float gain);
     void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
     /*
@@ -81,14 +81,6 @@ private:
         return scaledValue;
     }
     
-    /*
-    Dry:
-    scale (100 - rawParameterValue, 0.0f, 100.0f, 0.0f, 1.0f)
-     
-    Wet:
-     scale (100 - rawParameterValue, 0.0f, 100.0f, 0.0f, 1.0f)
-    */
-    
     //declare buffers
     juce::AudioBuffer<float> delayBuffer;
     juce::AudioBuffer<float> wetBuffer;
@@ -97,8 +89,14 @@ private:
     //declare global variables
     int writePosition { 0 };
     float phasorOutput = { 0.0f };
-    float delayTime = { 0.0f }; // <- in milliseconds
-    float delayWindow = { 22.0f }; // <- in milliseconds
+    
+    float delayTimeOne = { 0.0f }; // <- in milliseconds
+    float delayWindowOne = { 22.0f }; // <- in milliseconds
+    float wetGainOne = { 1.0f };
+    
+    float delayTimeTwo = { 0.0f }; // <- in milliseconds
+    float delayWindowTwo = { 22.0f }; // <- in milliseconds
+    float wetGainTwo = { 1.0f };
     
     
     //sawtooth oscillator -> replicates "phasor~"

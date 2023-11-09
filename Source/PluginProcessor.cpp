@@ -159,9 +159,9 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         buffer.clear (i, 0, buffer.getNumSamples());
     
     //set phasor~ frequency based on pitchRatio
-    float pitchRatio = apvts.getRawParameterValue ("Pitch Ratio")->load();
+    float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
     //delayWindow = // <- resolve to adjustable parameter
-    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
+    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindowOne) ); //set runtime phasor frequency
     
     /* Attempting to avoid using processSample
      
@@ -180,7 +180,9 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
         {
             phasorOutput = phasor.processSample(0.0f);
-            delayTime = delayWindow * phasorOutput;
+            delayTimeOne = delayWindowOne * phasorOutput;
+            wetGainOne = std::cos (2 * juce::MathConstants<float>::pi * (phasorOutput - 0.5f) / 2.0f); // <- modulating wetGainOne
+            wetGainTwo = std::cos (2 * juce::MathConstants<float>::pi * (std::fmodf ((phasorOutput + 0.5f), 1.0f) - 0.5f) / 2.0f); // <- modulating wetGainTwo
         }
     
     
@@ -191,10 +193,12 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         fillDelayBuffer (buffer, channel);
     
         //read from delay buffer into wetBuffer
-        readFromDelayBuffer(wetBuffer, delayBuffer, channel, delayTime);
+        readFromDelayBuffer (wetBuffer, delayBuffer, channel, delayTimeOne, wetGainOne);
+        
+        //call readFromDelayBuffer again to do smoothing
         
         //Blend control
-        float blendFactor = apvts.getRawParameterValue ("Blend")->load();
+        float blendFactor = treeState.getRawParameterValue ("Blend")->load();
         float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         
@@ -211,10 +215,17 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //DBG printer
        static juce::Time lastDebugPrintTime = juce::Time::getCurrentTime();
            juce::Time currentTime = juce::Time::getCurrentTime();
-           if (currentTime - lastDebugPrintTime >= juce::RelativeTime::milliseconds(1000))
+           if (currentTime - lastDebugPrintTime >= juce::RelativeTime::milliseconds(2000))
            {
+               //Blend control
+               float blendFactor = apvts.getRawParameterValue ("Blend")->load();
+               float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+               float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+               
                // Print debug message
-               DBG("pitchRatio: " + juce::String(pitchRatio));
+               DBG("Blend: " + juce::String(blendFactor));
+               DBG("dryGain: " + juce::String(dryGain));
+               DBG("wetGain: " + juce::String(wetGain));
                
                // Update the last print time
                lastDebugPrintTime = currentTime;
@@ -251,13 +262,13 @@ void JafftuneAudioProcessor::fillDelayBuffer (juce::AudioBuffer<float>& buffer, 
       }
 }
 
-void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& wetBuffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime)
+void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& wetBuffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime, float gain)
 {
     //adds delay buffer data to wetBuffer <- formerly main buffer
     
     //initialize variables
-    float gain = 1.0f;
-    auto bufferSize = wetBuffer.getNumSamples();
+    //float gain = 1.0f;
+    auto wetBufferSize = wetBuffer.getNumSamples();
     auto delayBufferSize = delayBuffer.getNumSamples();
     //float delayTime = 1500.0f; // <- should variable be declared inside the function?
     
@@ -267,13 +278,13 @@ void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& wetB
     if (readPosition < 0)
         readPosition += delayBufferSize;
     
-    if (readPosition + bufferSize < delayBufferSize) {
-        wetBuffer.copyFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), bufferSize, gain, gain);
+    if (readPosition + wetBufferSize < delayBufferSize) {
+        wetBuffer.copyFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), wetBufferSize, gain, gain);
     }
     else {
         auto numSamplesToEnd = delayBufferSize - readPosition;
         wetBuffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, gain, gain);
-        auto numSamplesAtStart = bufferSize - numSamplesToEnd;
+        auto numSamplesAtStart = wetBufferSize - numSamplesToEnd;
         wetBuffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, gain, gain);
     }
 }
@@ -323,13 +334,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         //adds parameter for controlling ratio of outpitch to inpitch
         layout.add(std::make_unique<juce::AudioParameterFloat>("Pitch Ratio",
         "Pitch Ratio",
-        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 0.987f));
+        juce::NormalisableRange<float>(0.5, 2.f, 0.01, 1.f), 0.94));
                                        // (low, hi, step, skew), default value)
         
         //adds parameter for blending pitshifted signal with input signal
         layout.add(std::make_unique<juce::AudioParameterFloat>("Blend",
         "Blend",
-        juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 50.f));
+        juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 50.0f));
         
         //adds binary option for Stereo and Mono modes
         juce::StringArray stringArray;
