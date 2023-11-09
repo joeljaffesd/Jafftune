@@ -84,6 +84,8 @@ private:
     //declare buffers
     juce::AudioBuffer<float> delayBuffer;
     juce::AudioBuffer<float> wetBuffer;
+    juce::AudioBuffer<float> wetBufferCopy;
+    juce::AudioBuffer<float> wetBufferMix;
     //juce::AudioBuffer<float> phasorBuffer; // <- if writing phasor~ to a buffer
     
     //declare global variables

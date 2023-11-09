@@ -100,6 +100,12 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     auto wetBufferSize = samplesPerBlock;
     wetBuffer.setSize(getTotalNumInputChannels(), (int)wetBufferSize);
     
+    auto wetBufferCopySize = samplesPerBlock;
+    wetBufferCopy.setSize(getTotalNumInputChannels(), (int)wetBufferCopySize);
+    
+    auto wetBufferMixSize = samplesPerBlock;
+    wetBufferMix.setSize(getTotalNumInputChannels(), (int)wetBufferMixSize);
+    
     /* if using phasorBuffer
     //initialize phasorBufferSize // <- if writing phasor~ to a buffer
     auto phasorBufferSize = samplesPerBlock;
@@ -180,8 +186,13 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
         {
             phasorOutput = phasor.processSample(0.0f);
+            
             delayTimeOne = delayWindowOne * phasorOutput;
+            
             wetGainOne = std::cos (2 * juce::MathConstants<float>::pi * (phasorOutput - 0.5f) / 2.0f); // <- modulating wetGainOne
+            
+            delayTimeTwo = delayWindowOne * std::fmodf ((phasorOutput + 0.5f), 1.0f);
+            
             wetGainTwo = std::cos (2 * juce::MathConstants<float>::pi * (std::fmodf ((phasorOutput + 0.5f), 1.0f) - 0.5f) / 2.0f); // <- modulating wetGainTwo
         }
     
@@ -195,17 +206,26 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //read from delay buffer into wetBuffer
         readFromDelayBuffer (wetBuffer, delayBuffer, channel, delayTimeOne, wetGainOne);
         
-        //call readFromDelayBuffer again to do smoothing
+        //read from delay buffer into wetBufferCopy
+        readFromDelayBuffer (wetBufferCopy, delayBuffer, channel, delayTimeTwo, wetGainTwo);
+        
+        //read from wetBuffer into wetBufferMix
+        wetBufferMix.copyFrom (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples());
+        
+        //read from wetBufferCopt into wetBufferMix
+        wetBufferMix.addFrom (channel, 0, wetBufferCopy.getReadPointer(channel), buffer.getNumSamples());
+        
         
         //Blend control
         float blendFactor = treeState.getRawParameterValue ("Blend")->load();
         float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         
-        //read from wetBuffer into buffer
+        //buffer passthru
         buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
         
-        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
+        //read from wetBufferMix into main buffer
+        buffer.addFromWithRamp (channel, 0, wetBufferMix.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
 
     }
     
@@ -340,7 +360,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         //adds parameter for blending pitshifted signal with input signal
         layout.add(std::make_unique<juce::AudioParameterFloat>("Blend",
         "Blend",
-        juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 50.0f));
+        juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 0.0f));
         
         //adds binary option for Stereo and Mono modes
         juce::StringArray stringArray;
