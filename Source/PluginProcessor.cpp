@@ -106,8 +106,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     auto wetBufferMixSize = samplesPerBlock;
     wetBufferMix.setSize(getTotalNumInputChannels(), (int)wetBufferMixSize);
     
-    /* if using phasorBuffer
-    //initialize phasorBufferSize // <- if writing phasor~ to a buffer
+     /* //if writing phasor~ to a buffer
+    //initialize phasorBufferSize
     auto phasorBufferSize = samplesPerBlock;
     phasorBuffer.setSize(getTotalNumInputChannels(), (int)phasorBufferSize);
     */
@@ -169,23 +169,35 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //delayWindow = // <- resolve to adjustable parameter
     phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindowOne) ); //set runtime phasor frequency
     
-    /* Attempting to avoid using processSample
+    /* //Attempting to avoid using processSample
      
     juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
      
-    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
+    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock)); //<- causing crash if pitchRatio goes above 1
     
-    for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
+    for (int sampleIndex = 0; sampleIndex < phasorBuffer.getNumSamples(); ++sampleIndex)
     {
-        phasorOutput = phasorBuffer.getSample (0, sampleIndex);
-        delayTime = delayWindow * phasorOutput;
+        
+     phasorOutput = phasorBuffer.getSample (0, sampleIndex);
+        
+     delayTimeOne = delayWindowOne * phasorOutput;
+     
+     wetGainOne = std::cos (2 * juce::MathConstants<float>::pi * (phasorOutput - 0.5f) / 2.0f); // <- modulating wetGainOne
+     
+     delayTimeTwo = delayWindowOne * std::fmodf ((phasorOutput + 0.5f), 1.0f);
+     
+     wetGainTwo = std::cos (2 * juce::MathConstants<float>::pi * (std::fmodf ((phasorOutput + 0.5f), 1.0f) - 0.5f) / 2.0f); // <- modulating wetGainTwo
+        
     }
     */
     
+     //if using processSample
     //Set phasorOutput equal to phasor~ output, set delayTime to delayWindow * phasorOutput
+    //modulate delayTime using ramp over course of one block?
         for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
         {
-            phasorOutput = phasor.processSample(0.0f);
+            phasorOutput = phasor.processSample(0.0f); //<- causing crash if pitchRatio goes above 1
+            //phasorOutput = phasorBuffer.getReadPointer(0);
             
             delayTimeOne = delayWindowOne * phasorOutput;
             
