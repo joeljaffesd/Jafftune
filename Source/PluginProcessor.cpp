@@ -192,48 +192,49 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //write from main buffer to delay buffer
         fillDelayBuffer (buffer, channel);
         
-        //read from wetBuffer into buffer
-        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain * volFactor, dryGain * volFactor);
-        
-        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain * volFactor, wetGain * volFactor);
-        
         auto* input = buffer.getWritePointer (channel);
-        
         auto* output = wetBuffer.getWritePointer (channel);
-        
         //auto* delayTap = delayLine.getWritePointer(channel);
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
+            float inputSample = input[sample];
             
-            //float inputSample = input[sample];
+            /*//delayLine class solution <- sounds like fm, some gain issue (try volume -5, blend 99 to hear)
             mDelayLine.pushSample(channel, input[sample]);
-            
             float phasorTap = phasorBuffer.getSample(channel, sample);
-
-            
-            //ok chat...
-            //int readPositionOne = (sample - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
-            //int readPositionTwo = (sample - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
-            
             int readPositionOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            int readPositionTwo = static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
-
-            //float delayTapOne = delayLine.getSample(channel, readPositionOne); //<- tapout1, causing negative sample index error
-            //float delayTapTwo = delayLine.getSample(channel, readPositionTwo); //<- tapout2
-            
             float delayTapOne = mDelayLine.popSample(channel, readPositionOne, true); //<- tapout1
-            float delayTapTwo = mDelayLine.popSample(channel, readPositionTwo, true); //<- tapout2
+            */
+             
+            /*//custom circular buffer solution <- also sounds like fm, not as smooth as delayLine class?
+            float phasorTap = phasorBuffer.getSample(channel, sample);
+            int readPositionOne = writePosition - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            int readPositionTwo = writePosition - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             
-            float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
-            float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            float delayTapOne = 0.0f;
+            
+            if (readPositionOne < 0)
+                readPositionOne += delayLine.getNumSamples();
+            {
+                delayTapOne = delayLine.getSample(channel, readPositionOne);
+            }
+            */
+            
+            //float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            //float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
             //auto outputSample = delayLine.getSample(channel, sample); //<- shows delay buffer is flawed
             //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
-            auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
-            //auto outputSample = input[sample];
+            //auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
+            auto outputSample = inputSample; //<- bypass
             output[sample] = outputSample;
         }
+        
+        //read from wetBuffer into buffer
+        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain * volFactor, dryGain * volFactor);
+        
+        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain * volFactor, wetGain * volFactor);
         
     }
      
