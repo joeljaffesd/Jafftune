@@ -116,7 +116,7 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
 
     phasorGain.setGainLinear( 1.0f );
-    sinOscGain.setGainLinear( 0.05f );
+    sinOscGain.setGainLinear( 0.01f ); // <- doesn't actually work?
 
 }
 
@@ -177,10 +177,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         buffer.clear (i, 0, buffer.getNumSamples());
     
     //Blend control
-            float blendFactor = treeState.getRawParameterValue ("Blend")->load();
-            float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-            float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-            
+        float blendFactor = treeState.getRawParameterValue ("Blend")->load();
+        float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+        float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+        float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
 
     //write and read from delayBuffer
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -189,9 +189,9 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         fillDelayBuffer (buffer, channel);
         
         //read from wetBuffer into buffer
-        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
+        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain * volFactor, dryGain * volFactor);
         
-        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
+        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain * volFactor, wetGain * volFactor);
         
         //auto* input = buffer.getWritePointer (channel);
         
@@ -219,10 +219,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
-            //auto outputSample = delayLine.getSample(channel, sample) / 100.0f; //<- shows delay buffer is flawed
-            //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo)) / 100.0f;
-            auto outputSample = delayTapOne / 100.0f; //<- should work as basic pitchshift with artifacts
-            //auto outputSample = inputSample / 100.0f;
+            //auto outputSample = delayLine.getSample(channel, sample); //<- shows delay buffer is flawed
+            //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
+            auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
+            //auto outputSample = inputSample;
             output[sample] = outputSample;
         }
         
@@ -314,7 +314,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         "Blend",
         juce::NormalisableRange<float>(0.f, 100.f, 1.f, 1.f), 0.0f));
         
-        //adds binary option for Stereo and Mono modes
+        //adds parameter for blending pitshifted signal with input signal
+        layout.add(std::make_unique<juce::AudioParameterFloat>("Volume",
+        "Volume",
+        juce::NormalisableRange<float>(-60.0f, 0.0f, 1.f, 1.f), -60.0f));
+        
+        //adds binary option for Stereo and Mono modes (not implemented)
         juce::StringArray stringArray;
         for( int i = 0; i < 2; ++i )
         {

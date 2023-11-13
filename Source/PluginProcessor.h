@@ -77,6 +77,10 @@ private:
         return valueInMs * (getSampleRate() / 1000);
     }
     
+    float dbtoa(float valueIndB) {
+        return std::pow(10.0, valueIndB / 20.0);
+    }
+    
     //initialize buffers
     juce::AudioBuffer<float> phasorBuffer;
     juce::AudioBuffer<float> delayLine;
