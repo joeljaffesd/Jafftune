@@ -175,6 +175,12 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+    
+    //Blend control
+            float blendFactor = treeState.getRawParameterValue ("Blend")->load();
+            float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+            float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+            
 
     //write and read from delayBuffer
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -182,9 +188,14 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //write from main buffer to delay buffer
         fillDelayBuffer (buffer, channel);
         
+        //read from wetBuffer into buffer
+        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
+        
+        buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
+        
         //auto* input = buffer.getWritePointer (channel);
         
-        auto* output = buffer.getWritePointer (channel);
+        auto* output = wetBuffer.getWritePointer (channel);
         
         //auto* delayTap = delayLine.getWritePointer(channel);
         
@@ -209,8 +220,8 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
             //auto outputSample = delayLine.getSample(channel, sample) / 100.0f; //<- shows delay buffer is flawed
-            auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo)) / 100.0f;
-            //auto outputSample = delayTapOne / 100.0f; //<- should work as basic pitchshift with artifacts
+            //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo)) / 100.0f;
+            auto outputSample = delayTapOne / 100.0f; //<- should work as basic pitchshift with artifacts
             //auto outputSample = inputSample / 100.0f;
             output[sample] = outputSample;
         }
