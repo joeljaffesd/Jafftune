@@ -116,7 +116,11 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
 
     phasorGain.setGainLinear( 1.0f );
-    sinOscGain.setGainLinear( 0.01f ); // <- doesn't actually work?
+    sinOscGain.setGainLinear( 1.0f );
+    
+    mDelayLine.reset();
+    mDelayLine.setMaximumDelayInSamples (getSampleRate());
+    mDelayLine.prepare (spec);
 
 }
 
@@ -193,7 +197,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         
         buffer.addFromWithRamp (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples(), wetGain * volFactor, wetGain * volFactor);
         
-        //auto* input = buffer.getWritePointer (channel);
+        auto* input = buffer.getWritePointer (channel);
         
         auto* output = wetBuffer.getWritePointer (channel);
         
@@ -203,18 +207,23 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         {
             
             //float inputSample = input[sample];
+            mDelayLine.pushSample(channel, input[sample]);
             
             float phasorTap = phasorBuffer.getSample(channel, sample);
 
-            //int readPositionOne = sample - (fmod(phasorTap, 1) * msToSamps(delayWindow));
-            //int readPositionTwo = sample - (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             
             //ok chat...
-            int readPositionOne = (sample - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
-            int readPositionTwo = (sample - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
+            //int readPositionOne = (sample - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
+            //int readPositionTwo = (sample - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
+            
+            int readPositionOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            int readPositionTwo = static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
 
-            float delayTapOne = delayLine.getSample(channel, readPositionOne); //<- tapout1, causing negative sample index error
-            float delayTapTwo = delayLine.getSample(channel, readPositionTwo); //<- tapout2
+            //float delayTapOne = delayLine.getSample(channel, readPositionOne); //<- tapout1, causing negative sample index error
+            //float delayTapTwo = delayLine.getSample(channel, readPositionTwo); //<- tapout2
+            
+            float delayTapOne = mDelayLine.popSample(channel, readPositionOne, true); //<- tapout1
+            float delayTapTwo = mDelayLine.popSample(channel, readPositionTwo, true); //<- tapout2
             
             float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
@@ -222,7 +231,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             //auto outputSample = delayLine.getSample(channel, sample); //<- shows delay buffer is flawed
             //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
             auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
-            //auto outputSample = inputSample;
+            //auto outputSample = input[sample];
             output[sample] = outputSample;
         }
         
