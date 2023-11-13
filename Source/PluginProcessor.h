@@ -63,17 +63,9 @@ public:
 private:
     //declare functions
     void fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel);
-    void readFromDelayBuffer (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime, float gain);
+    
     void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
     
-    /*
-    //dbtoa <- unnecessary?
-    float dbtoa(float db) {
-      return pow(10.0, db / 20.0);
-    }
-    */
-    
-    //scale
     float scale(float x, float inMin, float inMax, float outMin, float outMax) {
         // Perform linear mapping based on specified input and output ranges
         float scaledValue = ((x - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin;
@@ -81,28 +73,31 @@ private:
         return scaledValue;
     }
     
-    //declare buffers
-    juce::AudioBuffer<float> delayBuffer;
+    float msToSamps(float valueInMs) {
+        return valueInMs * (getSampleRate() / 1000);
+    }
+    
+    //initialize buffers
+    juce::AudioBuffer<float> phasorBuffer;
+    juce::AudioBuffer<float> delayLine;
     juce::AudioBuffer<float> wetBuffer;
-    juce::AudioBuffer<float> wetBufferCopy;
-    juce::AudioBuffer<float> wetBufferMix;
-    //juce::AudioBuffer<float> phasorBuffer; // <- if writing phasor~ to a buffer
     
+    //initialzie oscillator gains
+    juce::dsp::Gain<float> phasorGain;
+    juce::dsp::Gain<float> sinOscGain;
+   
     //declare global variables
-    int writePosition { 0 };
-    float phasorOutput = { 0.0f };
-    
-    float delayTimeOne = { 0.0f }; // <- in milliseconds
-    float delayWindowOne = { 22.0f }; // <- in milliseconds
-    float wetGainOne = { 1.0f };
-    
-    float delayTimeTwo = { 0.0f }; // <- in milliseconds
-    float delayWindowTwo = { 22.0f }; // <- in milliseconds
-    float wetGainTwo = { 1.0f };
-    
-    
+    const float pi = {juce::MathConstants<float>::pi};
+    int writePosition = { 0 };
+    float delayTime = { 0.0f };
+    float delayWindow = { 22.0f };
+    float pitchRatio = { 1.0f };
+
     //sawtooth oscillator -> replicates "phasor~"
     juce::dsp::Oscillator<float> phasor { [](float x) { return ((x / juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};
+    
+    //initialize sinOsc (for testing pitchshift)
+    juce::dsp::Oscillator<float> sinOsc { [](float x) { return std::sin (x); }};
     
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JafftuneAudioProcessor)

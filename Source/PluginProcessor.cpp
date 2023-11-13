@@ -95,23 +95,14 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
 {
     //initialize delayBufferSize
     auto delayBufferSize = sampleRate * 2.0;
-    delayBuffer.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
+    delayLine.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
+    
+    auto phasorBufferSize = samplesPerBlock;
+    phasorBuffer.setSize(getTotalNumOutputChannels(), (int)phasorBufferSize);
     
     auto wetBufferSize = samplesPerBlock;
     wetBuffer.setSize(getTotalNumInputChannels(), (int)wetBufferSize);
-    
-    auto wetBufferCopySize = samplesPerBlock;
-    wetBufferCopy.setSize(getTotalNumInputChannels(), (int)wetBufferCopySize);
-    
-    auto wetBufferMixSize = samplesPerBlock;
-    wetBufferMix.setSize(getTotalNumInputChannels(), (int)wetBufferMixSize);
-    
-     /* //if writing phasor~ to a buffer
-    //initialize phasorBufferSize
-    auto phasorBufferSize = samplesPerBlock;
-    phasorBuffer.setSize(getTotalNumInputChannels(), (int)phasorBufferSize);
-    */
-    
+        
     //initialzie spec
     juce::dsp::ProcessSpec spec;
     spec.maximumBlockSize = samplesPerBlock;
@@ -119,7 +110,13 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     spec.numChannels = getTotalNumOutputChannels();
     
     phasor.prepare (spec); //pass spec to phasor
-    phasor.setFrequency( 1.0f ); //set initial phasor frequency
+    phasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
+
+    sinOsc.prepare (spec); //pass spec to sinOsc
+    sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
+
+    phasorGain.setGainLinear( 1.0f );
+    sinOscGain.setGainLinear( 0.05f );
 
 }
 
@@ -160,123 +157,82 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
     
     //set phasor~ frequency based on pitchRatio
     float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
-    //delayWindow = // <- resolve to adjustable parameter
-    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindowOne) ); //set runtime phasor frequency
     
-    /* //Attempting to avoid using processSample
-     
+    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
+    
     juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
-     
-    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock)); //<- causing crash if pitchRatio goes above 1
     
-    for (int sampleIndex = 0; sampleIndex < phasorBuffer.getNumSamples(); ++sampleIndex)
-    {
-        
-     phasorOutput = phasorBuffer.getSample (0, sampleIndex);
-        
-     delayTimeOne = delayWindowOne * phasorOutput;
-     
-     wetGainOne = std::cos (2 * juce::MathConstants<float>::pi * (phasorOutput - 0.5f) / 2.0f); // <- modulating wetGainOne
-     
-     delayTimeTwo = delayWindowOne * std::fmodf ((phasorOutput + 0.5f), 1.0f);
-     
-     wetGainTwo = std::cos (2 * juce::MathConstants<float>::pi * (std::fmodf ((phasorOutput + 0.5f), 1.0f) - 0.5f) / 2.0f); // <- modulating wetGainTwo
-        
-    }
-    */
+    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
     
-     //if using processSample
-    //Set phasorOutput equal to phasor~ output, set delayTime to delayWindow * phasorOutput
-    //modulate delayTime using ramp over course of one block?
-        for (int sampleIndex = 0; sampleIndex < buffer.getNumSamples(); ++sampleIndex)
-        {
-            phasorOutput = phasor.processSample(0.0f); //<- causing crash if pitchRatio goes above 1
-            //phasorOutput = phasorBuffer.getReadPointer(0);
-            
-            delayTimeOne = delayWindowOne * phasorOutput;
-            
-            wetGainOne = std::cos (2 * juce::MathConstants<float>::pi * (phasorOutput - 0.5f) / 2.0f); // <- modulating wetGainOne
-            
-            delayTimeTwo = delayWindowOne * std::fmodf ((phasorOutput + 0.5f), 1.0f);
-            
-            wetGainTwo = std::cos (2 * juce::MathConstants<float>::pi * (std::fmodf ((phasorOutput + 0.5f), 1.0f) - 0.5f) / 2.0f); // <- modulating wetGainTwo
-        }
+    sinOsc.setFrequency ( 440.0f ); //set runtime phasor frequency
     
+    juce::dsp::AudioBlock<float> bufferBlock { buffer };
     
+    sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+
+    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());
+
     //write and read from delayBuffer
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         //write from main buffer to delay buffer
         fillDelayBuffer (buffer, channel);
-    
-        //read from delay buffer into wetBuffer
-        readFromDelayBuffer (wetBuffer, delayBuffer, channel, delayTimeOne, wetGainOne);
         
-        //read from delay buffer into wetBufferCopy
-        readFromDelayBuffer (wetBufferCopy, delayBuffer, channel, delayTimeTwo, wetGainTwo);
+        //auto* input = buffer.getWritePointer (channel);
         
-        //read from wetBuffer into wetBufferMix
-        wetBufferMix.copyFrom (channel, 0, wetBuffer.getReadPointer(channel), buffer.getNumSamples());
+        auto* output = buffer.getWritePointer (channel);
         
-        //read from wetBufferCopt into wetBufferMix
-        wetBufferMix.addFrom (channel, 0, wetBufferCopy.getReadPointer(channel), buffer.getNumSamples());
+        //auto* delayTap = delayLine.getWritePointer(channel);
         
-        
-        //Blend control
-        float blendFactor = treeState.getRawParameterValue ("Blend")->load();
-        float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-        float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-        
-        //buffer passthru
-        buffer.copyFromWithRamp (channel, 0, buffer.getReadPointer(channel), buffer.getNumSamples(), dryGain, dryGain);
-        
-        //read from wetBufferMix into main buffer
-        buffer.addFromWithRamp (channel, 0, wetBufferMix.getReadPointer(channel), buffer.getNumSamples(), wetGain, wetGain);
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            
+            //float inputSample = input[sample];
+            
+            float phasorTap = phasorBuffer.getSample(channel, sample);
 
+            //int readPositionOne = sample - (fmod(phasorTap, 1) * msToSamps(delayWindow));
+            //int readPositionTwo = sample - (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
+            
+            //ok chat...
+            int readPositionOne = (sample - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
+            int readPositionTwo = (sample - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow)) + delayLine.getNumSamples()) % delayLine.getNumSamples();
+
+            float delayTapOne = delayLine.getSample(channel, readPositionOne); //<- tapout1, causing negative sample index error
+            float delayTapTwo = delayLine.getSample(channel, readPositionTwo); //<- tapout2
+            
+            float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            
+            //auto outputSample = delayLine.getSample(channel, sample) / 100.0f; //<- shows delay buffer is flawed
+            auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo)) / 100.0f;
+            //auto outputSample = delayTapOne / 100.0f; //<- should work as basic pitchshift with artifacts
+            //auto outputSample = inputSample / 100.0f;
+            output[sample] = outputSample;
+        }
+        
     }
-    
-    updateBufferPositions (buffer, delayBuffer);
-    
-    /*
-    //DBG printer
-       static juce::Time lastDebugPrintTime = juce::Time::getCurrentTime();
-           juce::Time currentTime = juce::Time::getCurrentTime();
-           if (currentTime - lastDebugPrintTime >= juce::RelativeTime::milliseconds(2000))
-           {
-               //Blend control
-               float blendFactor = apvts.getRawParameterValue ("Blend")->load();
-               float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-               float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-               
-               // Print debug message
-               DBG("Blend: " + juce::String(blendFactor));
-               DBG("dryGain: " + juce::String(dryGain));
-               DBG("wetGain: " + juce::String(wetGain));
-               
-               // Update the last print time
-               lastDebugPrintTime = currentTime;
-           }
-     */
-    
+     
+    updateBufferPositions (buffer, delayLine);
+   
 }
+
 void JafftuneAudioProcessor::fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel)
 {
       //initialize variables
       float gain = 1.0f;
       auto bufferSize = buffer.getNumSamples();
-      auto delayBufferSize = delayBuffer.getNumSamples();
+      auto delayBufferSize = delayLine.getNumSamples();
       
       //Check to see if main buffer copies to delay buffer without needing to wrap
       if (delayBufferSize > bufferSize + writePosition)
       {
           //copy main buffer to delay buffer
-          delayBuffer.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), bufferSize, gain, gain); // 0.8 = start and end gain, why not 1.0?
+          delayLine.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), bufferSize, gain, gain); // 0.8 = start and end gain, why not 1.0?
       }
       //if not
       else {
@@ -284,47 +240,20 @@ void JafftuneAudioProcessor::fillDelayBuffer (juce::AudioBuffer<float>& buffer, 
           auto numSamplesToEnd = delayBufferSize - writePosition;
           
           //copy that amount of content to the end
-          delayBuffer.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), numSamplesToEnd, gain, gain);
+          delayLine.copyFromWithRamp(channel, writePosition, buffer.getWritePointer(channel), numSamplesToEnd, gain, gain);
           
           //calculate how much content remains to be copied
           auto numSamplesAtStart = bufferSize - numSamplesToEnd;
           
           //copy remainging amount to beginning of delay buffer
-          delayBuffer.copyFromWithRamp(channel, 0, buffer.getWritePointer(channel) + numSamplesToEnd, numSamplesAtStart, gain, gain);
+          delayLine.copyFromWithRamp(channel, 0, buffer.getWritePointer(channel) + numSamplesToEnd, numSamplesAtStart, gain, gain);
       }
 }
 
-void JafftuneAudioProcessor::readFromDelayBuffer (juce::AudioBuffer<float>& wetBuffer, juce::AudioBuffer<float>& delayBuffer, int channel, float delayTime, float gain)
-{
-    //adds delay buffer data to wetBuffer <- formerly main buffer
-    
-    //initialize variables
-    //float gain = 1.0f;
-    auto wetBufferSize = wetBuffer.getNumSamples();
-    auto delayBufferSize = delayBuffer.getNumSamples();
-    //float delayTime = 1500.0f; // <- should variable be declared inside the function?
-    
-    //create parameter for delay time
-    auto readPosition = writePosition - (delayTime * (getSampleRate() / 1000));
-    
-    if (readPosition < 0)
-        readPosition += delayBufferSize;
-    
-    if (readPosition + wetBufferSize < delayBufferSize) {
-        wetBuffer.copyFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), wetBufferSize, gain, gain);
-    }
-    else {
-        auto numSamplesToEnd = delayBufferSize - readPosition;
-        wetBuffer.addFromWithRamp(channel, 0, delayBuffer.getReadPointer(channel, readPosition), numSamplesToEnd, gain, gain);
-        auto numSamplesAtStart = wetBufferSize - numSamplesToEnd;
-        wetBuffer.addFromWithRamp(channel, numSamplesToEnd, delayBuffer.getReadPointer(channel, 0), numSamplesAtStart, gain, gain);
-    }
-}
-
-void JafftuneAudioProcessor::updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer)
+void JafftuneAudioProcessor::updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayLine)
 {
     auto bufferSize = buffer.getNumSamples();
-    auto delayBufferSize = delayBuffer.getNumSamples();
+    auto delayBufferSize = delayLine.getNumSamples();
     
     writePosition += bufferSize;
     writePosition %= delayBufferSize;
