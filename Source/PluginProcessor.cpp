@@ -110,7 +110,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     spec.numChannels = getTotalNumOutputChannels();
     
     phasor.prepare (spec); //pass spec to phasor
-    phasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
+    //phasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
+    phasor.setFrequency( 0.25f ); // <-DBG Freq
 
     sinOsc.prepare (spec); //pass spec to sinOsc
     sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
@@ -121,7 +122,7 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     mDelayLine.reset();
     mDelayLine.setMaximumDelayInSamples (getSampleRate());
     mDelayLine.prepare (spec);
-
+    
 }
 
 void JafftuneAudioProcessor::releaseResources()
@@ -165,7 +166,8 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //set phasor~ frequency based on pitchRatio
     float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
     
-    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
+    //phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
+    phasor.setFrequency( 0.25f ); // <-DBG Freq
     
     juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
     
@@ -202,13 +204,15 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             
             //delayLine class solution <- sounds like fm, some gain issue (try volume -5, blend 99 to hear)
             mDelayLine.pushSample(channel, input[sample]);
-            float phasorTap = phasorBuffer.getSample(channel, sample);
-            //int readPositionOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            int delayInSamples = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            //int delayInSamples = getSampleRate();
+            //float phasorTap = phasorBuffer.getSample(channel, phasorBuffer.getWritePointer(channel)[sample]); // <-something is wrong with phasor
+            float phasorTap = phasor.processSample(inputSample); // <-something is wrong with phasor
+            //int delayInSamples = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            int delayInSamples = getSampleRate();
+            //int delayInSamples = static_cast<int>(phasorTap * msToSamps(delayWindow));
             float delayTapOne = mDelayLine.popSample(channel, delayInSamples, true); //<- tapout1
             
-            
+            DBG("phasorTap: " + juce::String(phasorTap));
+    
             /*//custom circular buffer solution <- also sounds like fm, not as smooth as delayLine class?
             float phasorTap = phasorBuffer.getSample(channel, sample);
             //int readPositionOne = writePosition - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
