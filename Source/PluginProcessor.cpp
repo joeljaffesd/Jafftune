@@ -200,17 +200,20 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         {
             float inputSample = input[sample];
             
-            /*//delayLine class solution <- sounds like fm, some gain issue (try volume -5, blend 99 to hear)
+            //delayLine class solution <- sounds like fm, some gain issue (try volume -5, blend 99 to hear)
             mDelayLine.pushSample(channel, input[sample]);
             float phasorTap = phasorBuffer.getSample(channel, sample);
-            int readPositionOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            float delayTapOne = mDelayLine.popSample(channel, readPositionOne, true); //<- tapout1
-            */
-             
+            //int readPositionOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            int delayInSamples = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            //int delayInSamples = getSampleRate();
+            float delayTapOne = mDelayLine.popSample(channel, delayInSamples, true); //<- tapout1
+            
+            
             /*//custom circular buffer solution <- also sounds like fm, not as smooth as delayLine class?
             float phasorTap = phasorBuffer.getSample(channel, sample);
-            int readPositionOne = writePosition - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            int readPositionTwo = writePosition - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
+            //int readPositionOne = writePosition - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            int readPositionOne = writePosition - getSampleRate();
+            //int readPositionTwo = writePosition - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             
             float delayTapOne = 0.0f;
             
@@ -224,10 +227,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             //float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             //float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
-            //auto outputSample = delayLine.getSample(channel, sample); //<- shows delay buffer is flawed
+            //auto outputSample = delayLine.getSample(channel, delayLine.getWritePointer(channel)[sample] - 1); //<- shows delay buffer is flawed
             //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
-            //auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
-            auto outputSample = inputSample; //<- bypass
+            auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
+            //auto outputSample = inputSample; //<- bypass
             output[sample] = outputSample;
         }
         
