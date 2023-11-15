@@ -82,7 +82,7 @@ private:
     }
     
     //initialize buffers
-    juce::AudioBuffer<float> phasorBuffer;
+    //juce::AudioBuffer<float> phasorBuffer;
     juce::AudioBuffer<float> delayLine;
     juce::AudioBuffer<float> wetBuffer;
     

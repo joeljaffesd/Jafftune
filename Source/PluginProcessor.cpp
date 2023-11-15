@@ -97,8 +97,8 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     auto delayBufferSize = sampleRate * 2.0;
     delayLine.setSize(getTotalNumOutputChannels(), (int)delayBufferSize);
     
-    auto phasorBufferSize = samplesPerBlock;
-    phasorBuffer.setSize(getTotalNumOutputChannels(), (int)phasorBufferSize);
+    //auto phasorBufferSize = samplesPerBlock;
+    //phasorBuffer.setSize(getTotalNumOutputChannels(), (int)phasorBufferSize);
     
     auto wetBufferSize = samplesPerBlock;
     wetBuffer.setSize(getTotalNumInputChannels(), (int)wetBufferSize);
@@ -167,15 +167,15 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     
     phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
     
-    juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
+    //juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
     
-    phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
+    //phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
     
     sinOsc.setFrequency ( 440.0f ); //set runtime phasor frequency
     
-    juce::dsp::AudioBlock<float> bufferBlock { buffer };
+    //juce::dsp::AudioBlock<float> bufferBlock { buffer };
     
-    sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+    //sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
@@ -198,40 +198,21 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            //float inputSample = input[sample];
+            float inputSample = input[sample];
             
-            //delayLine class solution <- sounds like fm, some gain issue (try volume -5, blend 99 to hear)
-            mDelayLine.pushSample(channel, input[sample]);
+            mDelayLine.pushSample(channel, inputSample);
             float phasorTap = phasor.processSample(0.0f); // fixed!
             int delayOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
             int delayTwo = static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             float delayTapOne = mDelayLine.popSample(channel, delayOne, true); //<- tapout1
             float delayTapTwo = mDelayLine.popSample(channel, delayTwo, true); //<- tapout2
-            
-            //DBG("delayTest: " + juce::String(phasorTap));
-    
-            /*//custom circular buffer solution <- also sounds like fm, not as smooth as delayLine class?
-            float phasorTap = phasorBuffer.getSample(channel, sample);
-            //int readPositionOne = writePosition - static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            int readPositionOne = writePosition - getSampleRate();
-            //int readPositionTwo = writePosition - static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
-            
-            float delayTapOne = 0.0f;
-            
-            if (readPositionOne < 0)
-                readPositionOne += delayLine.getNumSamples();
-            {
-                delayTapOne = delayLine.getSample(channel, readPositionOne);
-            }
-            */
-            
             float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
             //auto outputSample = delayLine.getSample(channel, delayLine.getWritePointer(channel)[sample] - 1); //<- shows delay buffer is flawed
-            //auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
+            auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
             //auto outputSample = delayTapOne * gainWindowOne;
-            auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
+            //auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
             //auto outputSample = inputSample; //<- bypass
             output[sample] = outputSample;
         }
