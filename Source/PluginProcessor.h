@@ -81,6 +81,15 @@ private:
         return std::pow(10.0, valueIndB / 20.0);
     }
     
+    //onePole from https://www.musicdsp.org/en/latest/Filters/257-1-pole-lpf-for-smooth-parameter-changes.html
+    float onePole (float inputSample, float pastSample, float smoothingTimeInMs, int sampleRate) {
+        const int twoPi = 2 * juce::MathConstants<float>::pi;
+        float a = exp( -twoPi / (smoothingTimeInMs * 0.001f * sampleRate));
+        float b = 1.0f - a;
+        float outputSample = (inputSample * b) + (pastSample * a);
+        return outputSample;
+    };
+    
     //initialize buffers
     //juce::AudioBuffer<float> phasorBuffer;
     juce::AudioBuffer<float> delayLine;
@@ -102,6 +111,7 @@ private:
     float delayTime = { 0.0f };
     float delayWindow = { 22.0f };
     float pitchRatio = { 1.0f };
+    float globalPhasorTap = { 0.0f };
 
     //sawtooth oscillator -> replicates "phasor~"
     juce::dsp::Oscillator<float> phasor { [](float x) { return ((x / juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};

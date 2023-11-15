@@ -148,6 +148,7 @@ bool JafftuneAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts)
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
+
     // This checks if the input layout matches the output layout
    #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
@@ -169,16 +170,13 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
     
     phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
-    
     //juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
-    
     //phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
     
-    sinOsc.setFrequency ( 440.0f ); //set runtime phasor frequency
-    
-    //juce::dsp::AudioBlock<float> bufferBlock { buffer };
-    
-    //sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+    //writes sinOsc to buffer (for testing)
+    sinOsc.setFrequency ( 440.0f ); //set runtime sinOsc frequency
+    juce::dsp::AudioBlock<float> bufferBlock { buffer };
+    sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
@@ -188,35 +186,52 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
-
+    
+    /*// Advances phasor using processSample
+    for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+    {
+        globalPhasorTap = phasor.processSample( 0.0f );
+    }
+    */
+    
     //write and read from delayBuffer
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         //write from main buffer to delay buffer
-        fillDelayBuffer (buffer, channel);
+        //fillDelayBuffer (buffer, channel);
         
         auto* input = buffer.getWritePointer (channel);
         auto* output = wetBuffer.getWritePointer (channel);
         //auto* delayTap = delayLine.getWritePointer(channel);
+        //auto* phasorPointer = phasorBuffer.getReadPointer(channel);
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
             float inputSample = input[sample];
-            
             mDelayLineOne.pushSample(channel, inputSample);
-            mDelayLineTwo.pushSample(channel, inputSample);
-            float phasorTap = phasor.processSample(0.0f); // fixed!
-            int delayOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
-            int delayTwo = static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
+            //mDelayLineTwo.pushSample(channel, inputSample);
+            
+            //float phasorTap = phasor.processSample( 0.0f );
+            //int delayOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
+            //float phasorTap = phasorPointer[sample];
+            //float phasorTap = globalPhasorTap;
+            if (sample % 2 == 0) {
+                globalPhasorTap = phasor.processSample( 0.0f );
+            }
+            float phasorTap = globalPhasorTap;
+            //DBG("phasorTap: " + juce::String(phasorTap));
+            
+            float delayOne = (phasorTap * msToSamps(delayWindow));
+            //float delayTwo = (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             float delayTapOne = mDelayLineOne.popSample(channel, delayOne, true); //<- tapout1
-            float delayTapTwo = mDelayLineTwo.popSample(channel, delayTwo, true); //<- tapout2
-            float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
-            float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            //float delayTapTwo = mDelayLineOne.popSample(channel, delayTwo, true); //<- tapout2
+            //float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+            //float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             
             //auto outputSample = delayLine.getSample(channel, delayLine.getWritePointer(channel)[sample] - 1); //<- shows delay buffer is flawed
-            auto outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
+            //float outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo));
             //auto outputSample = delayTapOne * gainWindowOne;
-            //auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
+            auto outputSample = delayTapOne; //<- should work as basic pitchshift with artifacts
             //auto outputSample = inputSample; //<- bypass
             output[sample] = outputSample;
         }
@@ -228,7 +243,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         
     }
      
-    updateBufferPositions (buffer, delayLine);
+    //updateBufferPositions (buffer, delayLine);
    
 }
 
