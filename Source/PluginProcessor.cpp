@@ -118,10 +118,13 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     phasorGain.setGainLinear( 1.0f );
     sinOscGain.setGainLinear( 1.0f );
     
-    mDelayLine.reset();
-    mDelayLine.setMaximumDelayInSamples (getSampleRate());
-    mDelayLine.prepare (spec);
+    mDelayLineOne.reset();
+    mDelayLineOne.setMaximumDelayInSamples (getSampleRate());
+    mDelayLineOne.prepare (spec);
     
+    mDelayLineTwo.reset();
+    mDelayLineTwo.setMaximumDelayInSamples (getSampleRate());
+    mDelayLineTwo.prepare (spec);
 }
 
 void JafftuneAudioProcessor::releaseResources()
@@ -200,12 +203,13 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         {
             float inputSample = input[sample];
             
-            mDelayLine.pushSample(channel, inputSample);
+            mDelayLineOne.pushSample(channel, inputSample);
+            mDelayLineTwo.pushSample(channel, inputSample);
             float phasorTap = phasor.processSample(0.0f); // fixed!
             int delayOne = static_cast<int>(fmod(phasorTap, 1) * msToSamps(delayWindow));
             int delayTwo = static_cast<int>(fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
-            float delayTapOne = mDelayLine.popSample(channel, delayOne, true); //<- tapout1
-            float delayTapTwo = mDelayLine.popSample(channel, delayTwo, true); //<- tapout2
+            float delayTapOne = mDelayLineOne.popSample(channel, delayOne, true); //<- tapout1
+            float delayTapTwo = mDelayLineTwo.popSample(channel, delayTwo, true); //<- tapout2
             float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
             

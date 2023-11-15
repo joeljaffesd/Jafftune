@@ -87,7 +87,10 @@ private:
     juce::AudioBuffer<float> wetBuffer;
     
     //initialzie mDelayLine
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> mDelayLine { static_cast<int>(getSampleRate())};
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> mDelayLineOne { static_cast<int>(getSampleRate())};
+    
+    //initialzie mDelayLineCopy
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> mDelayLineTwo { static_cast<int>(getSampleRate())};
     
     //initialzie oscillator gains
     juce::dsp::Gain<float> phasorGain;
