@@ -77,6 +77,10 @@ private:
         return valueInMs * (getSampleRate() / 1000);
     }
     
+    float sampsToMs(float valueInSamps) {
+        return valueInSamps * (1000 / getSampleRate());
+    }
+    
     float dbtoa(float valueIndB) {
         return std::pow(10.0, valueIndB / 20.0);
     }
@@ -112,6 +116,7 @@ private:
     float delayWindow = { 22.0f };
     float pitchRatio = { 1.0f };
     float globalPhasorTap = { 0.0f };
+    float lastDelayTime = { 0.0f };
 
     //sawtooth oscillator -> replicates "phasor~"
     juce::dsp::Oscillator<float> phasor { [](float x) { return ((x / juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};
