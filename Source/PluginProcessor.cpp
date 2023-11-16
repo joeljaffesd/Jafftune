@@ -219,14 +219,15 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         lastDelayTimeTwo = filteredDelayTwo;
         float delayTapOne = mDelayLineOne.popSample(0, filteredDelayOne, false); //<- tapout1
         float delayTapTwo = mDelayLineOne.popSample(0, filteredDelayTwo, true); //<- tapout2
-        float gainWindowOne = cos((((fmod(phasorTap, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
-        float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+        float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
+        //float gainWindowTwo = cos((((fmod(phasorTap + 0.5f, 1) - 0.5f) / 2.0f)) * 2.0f * pi);
+        float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
         
         //auto outputSample = inputSample; //<- bypass
         //float outputSample = (delayTapOne * wetGain * volFactor) + (inputSample * dryGain * volFactor); //<- should work as basic pitchshift with artifacts
         //float outputSample = (((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo) * wetGain * volFactor) + (inputSample * dryGain * volFactor)); //<- windowed output
         //float outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo) * volFactor); //<- windowed output
-        float outputSample = delayTapOne * volFactor;
+        float outputSample = ((delayTapOne * gainWindowOne) + delayTapTwo * gainWindowTwo ) * volFactor;
         outputL[sample] = outputSample;
         outputR[sample] = outputSample;
     }
