@@ -176,7 +176,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //writes sinOsc to buffer (for testing)
     sinOsc.setFrequency ( 440.0f ); //set runtime sinOsc frequency
     juce::dsp::AudioBlock<float> bufferBlock { buffer };
-    sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
+    //sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
@@ -227,7 +227,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //float outputSample = (delayTapOne * wetGain * volFactor) + (inputSample * dryGain * volFactor); //<- should work as basic pitchshift with artifacts
         //float outputSample = (((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo) * wetGain * volFactor) + (inputSample * dryGain * volFactor)); //<- windowed output
         //float outputSample = ((delayTapOne * gainWindowOne) + (delayTapTwo * gainWindowTwo) * volFactor); //<- windowed output
-        float outputSample = ((delayTapOne * gainWindowOne) + delayTapTwo * gainWindowTwo ) * volFactor;
+        float outputSample = ((((delayTapOne * gainWindowOne) + delayTapTwo * gainWindowTwo ) * wetGain ) + (inputSample * dryGain)) * volFactor;
         outputL[sample] = outputSample;
         outputR[sample] = outputSample;
     }
