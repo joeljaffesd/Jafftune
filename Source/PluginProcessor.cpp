@@ -111,11 +111,15 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     
     phasor.prepare (spec); //pass spec to phasor
     phasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
+    
+    reversePhasor.prepare (spec); //pass spec to phasor
+    reversePhasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
 
     sinOsc.prepare (spec); //pass spec to sinOsc
     sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
 
     phasorGain.setGainLinear( 1.0f );
+    reversePhasorGain.setGainLinear ( 1.0f );
     sinOscGain.setGainLinear( 1.0f );
     
     mDelayLineOne.reset();
@@ -169,7 +173,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     //set phasor~ frequency based on pitchRatio
     float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
     
-    phasor.setFrequency ( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set runtime phasor frequency
+    phasor.setFrequency ( abs(1000.0f * ((1.0f - pitchRatio) / delayWindow)) );
+    reversePhasor.setFrequency ( abs(1000.0f * ((1.0f - pitchRatio) / delayWindow)) );
+    
+    //set runtime phasor frequency
     //juce::dsp::AudioBlock<float> phasorBlock { phasorBuffer };
     //phasor.process (juce::dsp::ProcessContextReplacing<float> (phasorBlock));
     
@@ -207,7 +214,15 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         //mDelayLineTwo.pushSample(channel, inputSample);
         
         //float phasorTap = phasorPointer[sample];
-        globalPhasorTap = phasor.processSample( 0.0f );
+        
+        if (pitchRatio <= 1.0f ) {
+            globalPhasorTap = phasor.processSample( 0.0f );
+        }
+        else {
+            globalPhasorTap = reversePhasor.processSample( 0.0f );
+        }
+        
+        //globalPhasorTap = phasor.processSample( 0.0f );
         float phasorTap = globalPhasorTap;
         //DBG("phasorTap: " + juce::String(phasorTap));
         

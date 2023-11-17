@@ -107,6 +107,7 @@ private:
     
     //initialzie oscillator gains
     juce::dsp::Gain<float> phasorGain;
+    juce::dsp::Gain<float> reversePhasorGain;
     juce::dsp::Gain<float> sinOscGain;
    
     //declare global variables
@@ -121,6 +122,9 @@ private:
 
     //sawtooth oscillator -> replicates "phasor~"
     juce::dsp::Oscillator<float> phasor { [](float x) { return ((x / juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};
+    
+    //reverse sawtooth oscillator -> replicates "phasor~" when input freq is negative
+    juce::dsp::Oscillator<float> reversePhasor { [](float x) { return ((x / -juce::MathConstants<float>::pi) + 1.0f) / 2.0f; }};
     
     //initialize sinOsc (for testing pitchshift)
     juce::dsp::Oscillator<float> sinOsc { [](float x) { return std::sin (x); }};
