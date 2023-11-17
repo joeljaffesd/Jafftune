@@ -215,11 +215,14 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         
         //float phasorTap = phasorPointer[sample];
         
-        if (pitchRatio <= 1.0f ) {
+        if (pitchRatio < 1.0f ) {
             globalPhasorTap = phasor.processSample( 0.0f );
         }
-        else {
+        else if (pitchRatio > 1.0f ){
             globalPhasorTap = reversePhasor.processSample( 0.0f );
+        }
+        else {
+            globalPhasorTap = 0.0f;
         }
         
         //globalPhasorTap = phasor.processSample( 0.0f );
