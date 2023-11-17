@@ -184,7 +184,8 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
         float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
     
-    auto* input = buffer.getReadPointer (0);
+    auto* inputL = buffer.getReadPointer (0);
+    auto* inputR = buffer.getReadPointer (1);
     auto* outputL = buffer.getWritePointer (0);
     auto* outputR = buffer.getWritePointer (1);
     //auto* delayTap = delayLine.getWritePointer(channel);
@@ -192,7 +193,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
-        float inputSample = input[sample];
+        float inputSample = inputL[sample] + inputR[sample];
         mDelayLineOne.pushSample(0, inputSample);
         
         if (pitchRatio < 1.0f ) {
