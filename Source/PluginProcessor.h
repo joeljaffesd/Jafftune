@@ -1,7 +1,14 @@
 /*
   ==============================================================================
 
-    This file contains the basic framework code for a JUCE plugin processor.
+ JAFFTUNE Real-Time Pitchshifter Powered by Variable-Rate Delay
+ Awknowledgments to Karl Yerkes, Miller Puckette, Jazer Sibley-Schwartz, @dude837 on YouTube, @The Audio Programmer on YouTube
+ 
+ YET TO IMPLEMENT:
+ -Mono/Stereo mode switching
+ -Presets
+ -Optimization for use as a Detune (RIP EVH <3)
+ -Testing as VST3
 
   ==============================================================================
 */
@@ -61,11 +68,8 @@ public:
     juce::AudioProcessorValueTreeState treeState {*this, nullptr, "Parameters", createParameterLayout()};
         
 private:
+    
     //declare functions
-    void fillDelayBuffer (juce::AudioBuffer<float>& buffer, int channel);
-    
-    void updateBufferPositions (juce::AudioBuffer<float>& buffer, juce::AudioBuffer<float>& delayBuffer);
-    
     float scale(float x, float inMin, float inMax, float outMin, float outMax) {
         // Perform linear mapping based on specified input and output ranges
         float scaledValue = ((x - inMin) / (inMax - inMin)) * (outMax - outMin) + outMin;
@@ -94,16 +98,8 @@ private:
         return outputSample;
     };
     
-    //initialize buffers
-    //juce::AudioBuffer<float> phasorBuffer;
-    juce::AudioBuffer<float> delayLine;
-    juce::AudioBuffer<float> wetBuffer;
-    
     //initialzie mDelayLine
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> mDelayLineOne { static_cast<int>(getSampleRate())};
-    
-    //initialzie mDelayLineCopy
-    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> mDelayLineTwo { static_cast<int>(getSampleRate())};
     
     //initialzie oscillator gains
     juce::dsp::Gain<float> phasorGain;
@@ -112,7 +108,6 @@ private:
    
     //declare global variables
     const float pi = {juce::MathConstants<float>::pi};
-    int writePosition = { 0 };
     float delayTime = { 0.0f };
     float delayWindow = { 22.0f };
     float pitchRatio = { 1.0f };
