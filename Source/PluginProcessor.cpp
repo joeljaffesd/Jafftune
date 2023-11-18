@@ -2,13 +2,14 @@
   ==============================================================================
 
     JAFFTUNE Real-Time Pitchshifter Powered by Variable-Rate Delay
-    Awknowledgments to Karl Yerkes, Miller Puckette, Jazer Sibley-Schwartz, @dude837 on YouTube, @The Audio Programmer on YouTube
+    Awknowledgments to Karl Yerkes, Miller Puckette, Jazer Sibley-Schwartz, @dude837 on YouTube, @The Audio Programmer on YouTube, @MatKatMusic on YouTube
     
     YET TO IMPLEMENT:
-    -Mono/Stereo mode switching
-    -Presets
-    -Optimization for use as a Detune (RIP EVH <3)
-    -Testing as VST3
+    -Independent Pitch Control per Channel in Stereo Mode
+    -Resolve delayWindow to a function of pitchRatio to keep phasorFreq < 5
+    -implementation as VST3
+    -implementation as AAX for ProTools
+    -implementation as AU for MacOS
  
   ==============================================================================
 */
@@ -197,14 +198,53 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
         if (operationMode == 0) {
-            //Bypass
+            //Stereo Bypass
+            float inputSampleL = inputL[sample];
+            float inputSampleR = inputR[sample];
+            outputL[sample] = inputSampleL * volFactor;
+            outputR[sample] = 0.0f;
+        }
+        else if (operationMode == 1) {
+            //Stereo Bypass
             float inputSampleL = inputL[sample];
             float inputSampleR = inputR[sample];
             outputL[sample] = inputSampleL * volFactor;
             outputR[sample] = inputSampleR * volFactor;
         }
-        else if (operationMode == 1) {
-            //Mono operation
+        else if (operationMode == 2) {
+            //Mono Operation
+            float inputSample = inputL[sample];
+            mDelayLineOne.pushSample(0, inputSample);
+            
+            if (pitchRatio < 1.0f ) {
+                globalPhasorTap = phasor.processSample( 0.0f );
+            }
+            else if (pitchRatio > 1.0f ){
+                globalPhasorTap = reversePhasor.processSample( 0.0f );
+            }
+            else {
+                globalPhasorTap = 0.0f;
+            }
+            
+            float phasorTap = globalPhasorTap;
+            
+            float delayOne = (phasorTap * msToSamps(delayWindow));
+            float delayTwo = (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
+            float filteredDelayOne = onePole(delayOne, lastDelayTimeOne, 0.05f, getSampleRate());
+            float filteredDelayTwo = onePole(delayTwo, lastDelayTimeTwo, 0.05f, getSampleRate());
+            lastDelayTimeOne = filteredDelayOne;
+            lastDelayTimeTwo = filteredDelayTwo;
+            float delayTapOneL = mDelayLineOne.popSample(0, filteredDelayOne, false); //<- tapout1L
+            float delayTapTwoL = mDelayLineOne.popSample(0, filteredDelayTwo, true); //<- tapout2L
+            float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
+            float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
+            
+            float outputSample = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSample * dryGain)) * volFactor;
+            outputL[sample] = outputSample;
+            outputR[sample] = 0.0f;
+        }
+        else if (operationMode == 3) {
+            //Stereo Operation (Wet L, Wet R)
             float inputSampleL = inputL[sample];
             float inputSampleR = inputR[sample];
             mDelayLineOne.pushSample(0, inputSampleL);
@@ -241,7 +281,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             outputR[sample] = outputSampleR;
         }
         else {
-            //Stereo operation
+            //Stereo Operation (Dry L, Wet R)
             float inputSampleL = inputL[sample];
             float inputSampleR = inputR[sample];
             mDelayLineOne.pushSample(0, inputSampleL);
@@ -331,17 +371,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         
         //adds binary option for Stereo and Mono modes (not implemented)
         juce::StringArray stringArray;
-        for( int i = 0; i < 3; ++i )
+        for( int i = 0; i < 5; ++i )
         {
             juce::String str;
             if (i == 0) {
-                str << "Bypass";
+                str << "Mono Bypass";
             }
             else if (i == 1) {
-                str << "Mono (Blend)";
+                str << "Stereo Bypass";
+            }
+            else if (i == 2) {
+                str << "Mono";
+            }
+            else if (i == 3) {
+                str << "Stereo (Wet L, Wet R)";
             }
             else {
-                str << "Stereo (Dry L Wet R";
+                str << "Stereo (Dry L, Wet R)";
             }
             stringArray.add(str);
         }

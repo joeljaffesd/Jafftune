@@ -2,13 +2,14 @@
   ==============================================================================
 
  JAFFTUNE Real-Time Pitchshifter Powered by Variable-Rate Delay
- Awknowledgments to Karl Yerkes, Miller Puckette, Jazer Sibley-Schwartz, @dude837 on YouTube, @The Audio Programmer on YouTube
+ Awknowledgments to Karl Yerkes, Miller Puckette, Jazer Sibley-Schwartz, @dude837 on YouTube, @The Audio Programmer on YouTube, @MatKatMusic on YouTube
  
  YET TO IMPLEMENT:
- -Mono/Stereo mode switching
- -Presets
- -Optimization for use as a Detune (RIP EVH <3)
- -Testing as VST3
+ -Independent Pitch Control per Channel in Stereo Mode
+ -Resolve delayWindow to a function of pitchRatio to keep phasorFreq < 5
+ -implementation as VST3
+ -implementation as AAX for ProTools
+ -implementation as AU for MacOS
 
   ==============================================================================
 */
