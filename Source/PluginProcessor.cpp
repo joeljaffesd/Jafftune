@@ -109,16 +109,11 @@ void JafftuneAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     
     phasor.prepare (spec); //pass spec to phasor
     phasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
-    
     reversePhasor.prepare (spec); //pass spec to phasor
-    reversePhasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial phasor frequency
-
-    sinOsc.prepare (spec); //pass spec to sinOsc
-    sinOsc.setFrequency( 440.0f ); //set initial sinOsc frequency
+    reversePhasor.setFrequency( 1000.0f * ((1.0f - pitchRatio) / delayWindow) ); //set initial reverse phasor frequency
 
     phasorGain.setGainLinear( 1.0f );
     reversePhasorGain.setGainLinear ( 1.0f );
-    sinOscGain.setGainLinear( 1.0f );
     
     mDelayLineOne.reset();
     mDelayLineOne.setMaximumDelayInSamples (getSampleRate());
@@ -166,41 +161,33 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     
     //set phasor~ frequency based on pitchRatio
     float pitchRatio = treeState.getRawParameterValue ("Pitch Ratio")->load();
-    
     phasor.setFrequency ( abs(1000.0f * ((1.0f - pitchRatio) / delayWindow)) );
     reversePhasor.setFrequency ( abs(1000.0f * ((1.0f - pitchRatio) / delayWindow)) );
-    
-    
-    //writes sinOsc to buffer (for testing)
-    sinOsc.setFrequency ( 440.0f ); //set runtime sinOsc frequency
-    juce::dsp::AudioBlock<float> bufferBlock { buffer };
-    //sinOsc.process (juce::dsp::ProcessContextReplacing<float> (bufferBlock));
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    //Operation mode (0 for mono, 1 for stereo
+    //Operation mode (0 = Mono Bypass, 1 = Stereo Bypass, 2 = Mono Operation, 3 = Stereo (Wet L, Wet R), 4 = Stereo (Dry L, Wet R)
     float operationMode = treeState.getRawParameterValue ("Operation Mode")->load();;
     
-    //Blend control
+    //Blend Control
         float blendFactor = treeState.getRawParameterValue ("Blend")->load();
         float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
         float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    
+    //Volume Control
         float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
     
     auto* inputL = buffer.getReadPointer (0);
     auto* inputR = buffer.getReadPointer (1);
     auto* outputL = buffer.getWritePointer (0);
     auto* outputR = buffer.getWritePointer (1);
-    //auto* delayTap = delayLine.getWritePointer(channel);
-    //auto* phasorPointer = phasorBuffer.getReadPointer(channel);
     
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
         if (operationMode == 0) {
-            //Stereo Bypass
+            //Mono Bypass
             float inputSampleL = inputL[sample];
-            float inputSampleR = inputR[sample];
             outputL[sample] = inputSampleL * volFactor;
             outputR[sample] = 0.0f;
         }
@@ -239,8 +226,8 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
             
-            float outputSample = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSample * dryGain)) * volFactor;
-            outputL[sample] = outputSample;
+            float outputSample = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSample * dryGain));
+            outputL[sample] = outputSample * volFactor;
             outputR[sample] = 0.0f;
         }
         else if (operationMode == 3) {
@@ -275,10 +262,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
             
-            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain)) * volFactor;
-            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain)) * volFactor;
-            outputL[sample] = outputSampleL;
-            outputR[sample] = outputSampleR;
+            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain));
+            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain));
+            outputL[sample] = outputSampleL * volFactor;
+            outputR[sample] = outputSampleR * volFactor;
         }
         else {
             //Stereo Operation (Dry L, Wet R)
@@ -312,10 +299,10 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
             
-            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain)) * volFactor;
-            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain)) * volFactor;
-            outputL[sample] = (inputSampleL + inputSampleR) / 2.0f;
-            outputR[sample] = (outputSampleL + outputSampleR) / 2.0f;
+            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain));
+            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain));
+            outputL[sample] = ((inputSampleL + inputSampleR) / 2.0f) * volFactor;
+            outputR[sample] = ((outputSampleL + outputSampleR) / 2.0f) * volFactor;
         }
     }
 }
