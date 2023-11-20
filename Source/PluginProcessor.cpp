@@ -171,40 +171,46 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     float operationMode = treeState.getRawParameterValue ("Operation Mode")->load();;
     
     //Blend Control
-        float blendFactor = treeState.getRawParameterValue ("Blend")->load();
-        float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
-        float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    float blendFactor = treeState.getRawParameterValue ("Blend")->load();
+    float dryGain = scale (100 - blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
+    float wetGain = scale (blendFactor, 0.0f, 100.0f, 0.0f, 1.0f);
     
     //Volume Control
-        float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
+    float volFactor = dbtoa(treeState.getRawParameterValue ("Volume")->load());
     
-    auto* inputL = buffer.getReadPointer (0);
-    auto* outputL = buffer.getWritePointer (0);
+     auto* inputL = buffer.getReadPointer (0);
+     auto* inputR = buffer.getReadPointer (1);
+     auto* outputL = buffer.getWritePointer (0);
+     auto* outputR = buffer.getWritePointer (1);
     
     for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
     {
         if (operationMode == 0) {
-            //Mono Bypass
+            //Stereo Bypass
             float inputSampleL = inputL[sample];
+            float inputSampleR = inputR[sample];
             outputL[sample] = inputSampleL * volFactor;
+            outputR[sample] = inputSampleR * volFactor;
         }
-        else {
-            //Mono Operation
-            float inputSample = inputL[sample];
-            mDelayLineOne.pushSample(0, inputSample);
-            
+        else if (operationMode == 1) {
+            //Stereo Operation (Dry L, Wet R)
+            float inputSampleL = inputL[sample];
+            float inputSampleR = inputR[sample];
+            mDelayLineOne.pushSample(0, inputSampleL);
+            mDelayLineOne.pushSample(1, inputSampleR);
+                    
             if (pitchRatio < 1.0f ) {
-                globalPhasorTap = phasor.processSample( 0.0f );
-            }
+                        globalPhasorTap = phasor.processSample( 0.0f );
+                    }
             else if (pitchRatio > 1.0f ){
                 globalPhasorTap = reversePhasor.processSample( 0.0f );
-            }
+                    }
             else {
                 globalPhasorTap = 0.0f;
-            }
-            
+                    }
+                    
             float phasorTap = globalPhasorTap;
-            
+                    
             float delayOne = (phasorTap * msToSamps(delayWindow));
             float delayTwo = (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
             float filteredDelayOne = onePole(delayOne, lastDelayTimeOne, 0.05f, getSampleRate());
@@ -212,12 +218,53 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             lastDelayTimeOne = filteredDelayOne;
             lastDelayTimeTwo = filteredDelayTwo;
             float delayTapOneL = mDelayLineOne.popSample(0, filteredDelayOne, false); //<- tapout1L
+            float delayTapOneR = mDelayLineOne.popSample(1, filteredDelayOne, false); //<- tapout1R
             float delayTapTwoL = mDelayLineOne.popSample(0, filteredDelayTwo, true); //<- tapout2L
+            float delayTapTwoR = mDelayLineOne.popSample(1, filteredDelayTwo, true); //<- tapout2R
             float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
             float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
-            
-            float outputSample = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSample * dryGain));
-            outputL[sample] = outputSample * volFactor;
+                    
+            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain));
+            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain));
+                    outputL[sample] = ((inputSampleL + inputSampleR) / 2.0f) * volFactor;
+                    outputR[sample] = ((outputSampleL + outputSampleR) / 2.0f) * volFactor;
+        }
+        else {
+            //Stereo Operation (Wet L, Wet R)
+            float inputSampleL = inputL[sample];
+            float inputSampleR = inputR[sample];
+            mDelayLineOne.pushSample(0, inputSampleL);
+            mDelayLineOne.pushSample(1, inputSampleR);
+                    
+            if (pitchRatio < 1.0f ) {
+                globalPhasorTap = phasor.processSample( 0.0f );
+                    }
+            else if (pitchRatio > 1.0f ){
+                globalPhasorTap = reversePhasor.processSample( 0.0f );
+                    }
+            else {
+                globalPhasorTap = 0.0f;
+                    }
+                    
+            float phasorTap = globalPhasorTap;
+                    
+            float delayOne = (phasorTap * msToSamps(delayWindow));
+            float delayTwo = (fmod(phasorTap + 0.5f, 1) * msToSamps(delayWindow));
+            float filteredDelayOne = onePole(delayOne, lastDelayTimeOne, 0.05f, getSampleRate());
+            float filteredDelayTwo = onePole(delayTwo, lastDelayTimeTwo, 0.05f, getSampleRate());
+            lastDelayTimeOne = filteredDelayOne;
+            lastDelayTimeTwo = filteredDelayTwo;
+            float delayTapOneL = mDelayLineOne.popSample(0, filteredDelayOne, false); //<- tapout1L
+            float delayTapOneR = mDelayLineOne.popSample(1, filteredDelayOne, false); //<- tapout1R
+            float delayTapTwoL = mDelayLineOne.popSample(0, filteredDelayTwo, true); //<- tapout2L
+            float delayTapTwoR = mDelayLineOne.popSample(1, filteredDelayTwo, true); //<- tapout2R
+            float gainWindowOne = cosf((((phasorTap - 0.5f) / 2.0f)) * 2.0f * pi);
+            float gainWindowTwo = cosf(((fmod((phasorTap + 0.5f), 1) - 0.5f) / 2.0f) * 2 * pi);
+                    
+            float outputSampleL = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSampleL * dryGain));
+            float outputSampleR = ((((delayTapOneR * gainWindowOne) + delayTapTwoR * gainWindowTwo ) * wetGain ) + (inputSampleR * dryGain));
+            outputL[sample] = outputSampleL * volFactor;
+            outputR[sample] = outputSampleR * volFactor;
         }
     }
 }
@@ -273,14 +320,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout
         
         //adds binary option for Stereo and Mono modes (not implemented)
         juce::StringArray stringArray;
-        for( int i = 0; i < 2; ++i )
+        for( int i = 0; i < 3; ++i )
         {
             juce::String str;
             if (i == 0) {
                 str << "Bypass";
             }
+            else if (i == 1) {
+                str << "Stereo (Dry L, Wet R)";
+            }
             else {
-                str << "Mono";
+                str << "Stereo (Wet L, Wet R)";
             }
             stringArray.add(str);
         }

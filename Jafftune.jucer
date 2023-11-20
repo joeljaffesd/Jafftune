@@ -6,7 +6,8 @@
               pluginManufacturer="Joel A. Jaffe" pluginAAXCategory="4" pluginVST3Category="Pitch Shift"
               companyName="Jaffco" companyWebsite="www.joeljaffesd.com" companyEmail="joel@jaffesd.com"
               pluginFormats="buildAU,buildStandalone,buildVST3" pluginName="Jafftune"
-              companyCopyright="Jafftune &#169; 2023 by Joel A. Jaffe is licensed under CC BY-SA 4.0">
+              companyCopyright="Jafftune &#169; 2023 by Joel A. Jaffe is licensed under CC BY-SA 4.0"
+              pluginChannelConfigs="{2, 2}">
   <MAINGROUP id="Czg4wN" name="Jafftune">
     <GROUP id="{CC0A38E2-414B-DF86-CE93-69911DD371FD}" name="Source">
       <FILE id="BcsJlq" name="PluginProcessor.cpp" compile="1" resource="0"
