@@ -9,7 +9,7 @@
  -Resolve delayWindow to a function of pitchRatio to keep phasorFreq < 5
  -implementation as VST3
  -implementation as AAX for ProTools
- -implementation as AU for MacOS
+ -implementation as AU for Logic
 
   ==============================================================================
 */

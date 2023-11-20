@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="iQy9Yw" name="Jafftune" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" bundleIdentifier="Jafftune"
+              pluginDesc="Real-Time Pitchshifter Powered by Variable-Rate Delay"
+              pluginManufacturer="Joel A. Jaffe" pluginAAXCategory="4" pluginVST3Category="Pitch Shift"
+              companyName="Jaffco" companyWebsite="www.joeljaffesd.com" companyEmail="joel@jaffesd.com"
+              pluginFormats="buildAU,buildStandalone,buildVST3" pluginName="Jafftune">
   <MAINGROUP id="Czg4wN" name="Jafftune">
     <GROUP id="{CC0A38E2-414B-DF86-CE93-69911DD371FD}" name="Source">
       <FILE id="BcsJlq" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -12,6 +16,8 @@
             file="Source/PluginEditor.cpp"/>
       <FILE id="bgEUQZ" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
+    <FILE id="t1LNsM" name="Jafftune_Icon.jpg" compile="0" resource="1"
+          file="../../Jafftune Icon/Jafftune_Icon.jpg"/>
   </MAINGROUP>
   <MODULES>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
@@ -31,7 +37,8 @@
   </MODULES>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
   <EXPORTFORMATS>
-    <XCODE_MAC targetFolder="Builds/MacOSX" microphonePermissionNeeded="1">
+    <XCODE_MAC targetFolder="Builds/MacOSX" microphonePermissionNeeded="1" bigIcon="t1LNsM"
+               smallIcon="t1LNsM">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" targetName="Jafftune"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="Jafftune"/>
