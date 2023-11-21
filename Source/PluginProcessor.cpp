@@ -189,7 +189,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             //Mono Bypass
             float inputSampleL = inputL[sample];
             outputL[sample] = inputSampleL * volFactor;
-            outputR[sample] = 0.0f;
+            outputR[sample] = inputSampleL * volFactor;;
         }
         else if (operationMode == 1) {
             //Stereo Bypass
@@ -228,7 +228,7 @@ void JafftuneAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
             
             float outputSample = ((((delayTapOneL * gainWindowOne) + delayTapTwoL * gainWindowTwo ) * wetGain ) + (inputSample * dryGain));
             outputL[sample] = outputSample * volFactor;
-            outputR[sample] = 0.0f;
+            outputR[sample] = outputSample * volFactor;
         }
         else if (operationMode == 3) {
             //Stereo Operation (Wet L, Wet R)
